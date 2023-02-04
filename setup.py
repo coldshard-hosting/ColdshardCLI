@@ -7,6 +7,7 @@ setup(
     install_requires=[
         'Click',
         "Requests",
+        "Inquirer"
     ],
     entry_points={
         'console_scripts': [
