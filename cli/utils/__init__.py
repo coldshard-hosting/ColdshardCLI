@@ -39,7 +39,8 @@ def request(method: str, endpoint: str, *, api_key: Optional[str] = None, **kwar
         api_key = get_api_key()
 
     response = requests.request(
-        method, f"{PANEL_API_URL}/{endpoint}", headers={"Authorization": f"Bearer {api_key}"}, **kwargs
+        method, f"{PANEL_API_URL}{endpoint}", headers={"Authorization": f"Bearer {api_key}"}, **kwargs
     )
+
 
     return response
