@@ -1,6 +1,7 @@
 import click
 import pathlib
 import json
+import inquirer
 
 from .utils import request
 
@@ -92,15 +93,63 @@ def list_servers(mine: bool, hide_suspended, count: int):
     click.echo(message)
 
 @servers.command("view")
-@click.option("--id", help="The ID of the server to view.", prompt="Server ID: ")
-def view_server(id: str):
+def view_server():
     """View information about a specific server."""
-    
-    response = request("GET", f"/servers/{id}")
 
-    if not response:
+    servers_response = request("GET", "/")
+
+    if not servers_response:
         return
     
-    data = response.json()
+    data = servers_response.json()
+    servers = data["data"]
 
+    server_names = {server["attributes"]["name"]: server["attributes"]["identifier"] for server in servers}
+
+    questions = [
+        inquirer.List("server", message="Select a server", choices=server_names.keys())
+    ]
+
+    answer = inquirer.prompt(questions)
+
+    id = server_names[answer["server"]] # type: ignore
+
+
+    server_response = request("GET", f"/servers/{id}")
+
+    if not server_response:
+        return
     
+    data = server_response.json()
+
+    server = data["attributes"]
+
+    stats_response = request("GET", f"/servers/{id}/resources")
+
+    if not stats_response:
+        return
+    
+    _stats = stats_response.json()
+    current_state = _stats["attributes"]["current_state"]
+    stats = _stats["attributes"]["resources"]
+
+    message = ""
+
+    message += click.style(f"Name:                     {server['name']}", bold=True)
+    message += "\n"
+    message += click.style(f"Current status:           {current_state.title()}", bold=True)
+    message += "\n"
+    message += click.style(f"Owner:                    {server['server_owner']}", bold=True)
+    message += "\n"
+    message += click.style(f"CPU Usage:                {stats['cpu_absolute']}/{server['limits']['cpu'] or '-'}%", bold=True)
+    message += "\n"
+    message += click.style(f"RAM Usage:                {round(stats['memory_bytes'] / 1024 / 1024)}/{server['limits']['memory'] or '-'}MB", bold=True)
+    message += "\n"
+    message += click.style(f"Disk Usage:               {round(stats['disk_bytes'] / 1024 / 1024)}/{server['limits']['disk'] or '-'}MB", bold=True)
+    message += "\n"
+    message += click.style(f"Network Usage (Inbound):  {round(stats['network_rx_bytes'] / 1024 / 1024)}MB", bold=True)
+    message += "\n"
+    message += click.style(f"Network Usage (Outbound): {round(stats['network_tx_bytes'] / 1024 / 1024)}MB", bold=True)
+    message += "\n"
+
+    click.echo(message)
