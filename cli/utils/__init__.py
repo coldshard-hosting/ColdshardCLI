@@ -42,5 +42,24 @@ def request(method: str, endpoint: str, *, api_key: Optional[str] = None, **kwar
         method, f"{PANEL_API_URL}{endpoint}", headers={"Authorization": f"Bearer {api_key}"}, **kwargs
     )
 
+    if response.status_code == 401:
+        click.echo(click.style("Invalid API Key.", fg="red", bold=True))
+        return
+
+    if response.status_code == 403:
+        click.echo(click.style("You do not have permission to perform this action.", fg="red", bold=True))
+        return
+    
+    if response.status_code == 404:
+        click.echo(click.style(f"The requested resource ({PANEL_API_URL}{endpoint}) was not found.", fg="red", bold=True))
+        return
+    
+    if response.status_code == 429:
+        click.echo(click.style("You have been ratelimited.", fg="red", bold=True))
+        return
+    
+    if response.status_code == 500:
+        click.echo(click.style("An internal server error occurred. Our servers may be down.", fg="red", bold=True))
+        return
 
     return response
