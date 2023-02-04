@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='coldshard-cli',
-    version='0.1.0',
+    version='0.1.1',
     packages=["cli", "cli.utils"],
     install_requires=[
         'Click',
@@ -14,4 +14,9 @@ setup(
             'coldshard = cli.main:core',
         ],
     },
+    author_email="TheUntraceable@TheUntraceable.me",
+    author="ColdShard LLC",
+    long_description=open("README.md", "r").read(),
+    long_description_content_type="text/markdown",
+    
 )
