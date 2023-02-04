@@ -53,3 +53,4 @@ def account():
     info += click.style(f"Username: {account['username']}\n", fg="blue", bold=True)
 
     click.echo(info)
+
