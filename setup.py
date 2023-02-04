@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='coldshard-cli',
-    version='0.1.2',
+    version='0.1.3',
     packages=["cli", "cli.utils"],
     install_requires=[
         'Click',
