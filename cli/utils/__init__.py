@@ -1,4 +1,5 @@
-from typing import Optional
+import inquirer
+from typing import Dict, Optional, Any, Tuple
 import click
 import requests
 import json
@@ -63,3 +64,21 @@ def request(method: str, endpoint: str, *, api_key: Optional[str] = None, **kwar
         return
 
     return response
+
+def prompt_server() -> Optional[tuple[dict[Any, Any], Optional[dict[Any, Any]]]]:
+
+    servers_response = request("GET", "/")
+
+    if not servers_response:
+        return
+    
+    data = servers_response.json()
+    servers = data["data"]
+
+    server_names = {server["attributes"]["name"]: server["attributes"]["identifier"] for server in servers}
+
+    questions = [
+        inquirer.List("server", message="Select a server", choices=server_names.keys())
+    ]
+
+    return (server_names, inquirer.prompt(questions))
