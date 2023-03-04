@@ -188,8 +188,6 @@ def stop_server():
     if not results:
         return
 
-    
-
     server_names, answer = results
 
     id = server_names[answer["server"]] # type: ignore

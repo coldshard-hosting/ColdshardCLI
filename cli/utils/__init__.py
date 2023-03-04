@@ -1,5 +1,5 @@
 import inquirer
-from typing import Dict, Optional, Any, Tuple
+from typing import Dict, Optional, Any
 import click
 import requests
 import json
@@ -81,4 +81,10 @@ def prompt_server() -> Optional[tuple[dict[Any, Any], Optional[dict[Any, Any]]]]
         inquirer.List("server", message="Select a server", choices=server_names.keys())
     ]
 
-    return (server_names, inquirer.prompt(questions))
+    try:
+        answers = inquirer.prompt(questions, raise_keyboard_interrupt=True)
+    except KeyboardInterrupt:
+        click.echo(click.style("Cancelled.", fg="red", bold=True))
+        exit(1)
+
+    return (server_names, answers)
