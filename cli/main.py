@@ -1,9 +1,10 @@
 #!/usr/bin/env python
-import click
-import pathlib
 import json
+import pathlib
 
-from .utils import request, prompt_server
+import click
+
+from .utils import prompt_server, request
 
 
 @click.group()
@@ -31,9 +32,7 @@ def login(api_key: str):
         json.dump({"api_key": api_key}, f, indent=4)
     click.echo(
         click.style(
-            f"Successfully logged in as {account['email']}",
-            fg="green",
-            bold=True
+            f"Successfully logged in as {account['email']}", fg="green", bold=True
         )
     )
 
@@ -74,12 +73,7 @@ def servers():
 @servers.command("list")
 @click.option("--mine", is_flag=True, help="Only list your servers.")
 @click.option("--hide-suspended", is_flag=True, help="Hide suspended servers.")
-@click.option(
-    "--count",
-    default=10,
-    help="The amount of servers to list.",
-    type=int
-)
+@click.option("--count", default=10, help="The amount of servers to list.", type=int)
 def list_servers(mine: bool, hide_suspended, count: int):
     """List your servers."""
 
