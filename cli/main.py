@@ -156,13 +156,13 @@ def view_server():
     message += "\n"
     message += click.style(
         "RAM Usage:                "
-        f"{round(stats['memory_bytes'] / 1024 / 1024)}/{server['limits']['memory'] or '-'}MB",
+        f"{round(stats['memory_bytes'] / 1024 / 1024)}/{server['limits']['memory'] or '-'}MB",  # noqa: E501
         bold=True,
     )
     message += "\n"
     message += click.style(
         "Disk Usage:               "
-        f"{round(stats['disk_bytes'] / 1024 / 1024)}/{server['limits']['disk'] or '-'}MB",
+        f"{round(stats['disk_bytes'] / 1024 / 1024)}/{server['limits']['disk'] or '-'}MB",  # noqa: E501
         bold=True,
     )
     message += "\n"
@@ -205,7 +205,11 @@ def start_server():
         click.echo(click.style("This server is already running.", fg="red", bold=True))
         return
 
-    response = request("POST", f"/servers/{id}/power", json={"signal": "start"})  # type: ignore
+    response = request(
+        "POST",
+        f"/servers/{id}/power",
+        json={"signal": "start"}
+    )
 
     if not response:
         return
