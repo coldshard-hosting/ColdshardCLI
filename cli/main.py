@@ -31,7 +31,9 @@ def login(api_key: str):
         json.dump({"api_key": api_key}, f, indent=4)
     click.echo(
         click.style(
-            f"Successfully logged in as {account['email']}", fg="green", bold=True
+            f"Successfully logged in as {account['email']}",
+            fg="green",
+            bold=True
         )
     )
 
@@ -72,7 +74,12 @@ def servers():
 @servers.command("list")
 @click.option("--mine", is_flag=True, help="Only list your servers.")
 @click.option("--hide-suspended", is_flag=True, help="Hide suspended servers.")
-@click.option("--count", default=10, help="The amount of servers to list.", type=int)
+@click.option(
+    "--count",
+    default=10,
+    help="The amount of servers to list.",
+    type=int
+)
 def list_servers(mine: bool, hide_suspended, count: int):
     """List your servers."""
 
@@ -148,17 +155,20 @@ def view_server():
     )
     message += "\n"
     message += click.style(
-        f"CPU Usage:                {stats['cpu_absolute']}/{server['limits']['cpu'] or '-'}%",
+        "CPU Usage:                "
+        f"{stats['cpu_absolute']}/{server['limits']['cpu'] or '-'}%",
         bold=True,
     )
     message += "\n"
     message += click.style(
-        f"RAM Usage:                {round(stats['memory_bytes'] / 1024 / 1024)}/{server['limits']['memory'] or '-'}MB",
+        "RAM Usage:                "
+        f"{round(stats['memory_bytes'] / 1024 / 1024)}/{server['limits']['memory'] or '-'}MB",
         bold=True,
     )
     message += "\n"
     message += click.style(
-        f"Disk Usage:               {round(stats['disk_bytes'] / 1024 / 1024)}/{server['limits']['disk'] or '-'}MB",
+        "Disk Usage:               "
+        f"{round(stats['disk_bytes'] / 1024 / 1024)}/{server['limits']['disk'] or '-'}MB",
         bold=True,
     )
     message += "\n"

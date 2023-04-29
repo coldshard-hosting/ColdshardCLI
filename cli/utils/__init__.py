@@ -1,5 +1,5 @@
 import inquirer
-from typing import Dict, Optional, Any
+from typing import Optional, Any
 import click
 import requests
 import json
