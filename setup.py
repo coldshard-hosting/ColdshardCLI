@@ -4,7 +4,11 @@ setup(
     name="coldshard-cli",
     version="0.1.3",
     packages=["cli", "cli.utils"],
-    install_requires=["Click", "Requests", "Inquirer"],
+    install_requires=[
+        "asyncclick",
+        "git+https://github.com/PteroPackages/Pytero",
+        "Inquirer",
+    ],
     entry_points={
         "console_scripts": [
             "coldshard = cli.main:core",
