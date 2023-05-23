@@ -2,13 +2,14 @@
 import json
 import pathlib
 
-import click
+import asyncclick as click
+import pytero
 
-from .utils import prompt_server, request
+from .utils import prompt_server, is_logged_in, get_api_key, warn_not_logged_in, PANEL_API_URL
 
 
 @click.group()
-def core():
+async def core():
     """The ColdShard CLI. For more information, use the help command."""
     if not pathlib.Path("../config.json").exists():
         with open("../config.json", "w") as f:
@@ -17,28 +18,22 @@ def core():
 
 @core.command()
 @click.option("--api-key", prompt="API Key", hide_input=True)
-def login(api_key: str):
+async def login(api_key: str):
     """Login to the panel using your API Key"""
-
-    response = request("GET", "/account", api_key=api_key)
-
-    if not response:
-        return  # The request was not made because there was no API key.
-
-    data = response.json()
-    account = data["attributes"]
-
+    client = pytero.PteroClient(PANEL_API_URL, api_key)
+    account = await client.get_account()
+    
     with open("../config.json", "w") as f:
         json.dump({"api_key": api_key}, f, indent=4)
     click.echo(
         click.style(
-            f"Successfully logged in as {account['email']}", fg="green", bold=True
+            f"Successfully logged in as {account.email}", fg="green", bold=True
         )
     )
 
 
 @core.command()
-def logout():
+async def logout():
     """Logout of the panel."""
     with open("../config.json", "w") as f:
         json.dump({}, f, indent=4)
@@ -46,26 +41,25 @@ def logout():
 
 
 @core.command("account")
-def account():
+async def account():
     """Get information about your account."""
-    response = request("GET", "/account")
-
-    if not response:
+    if not is_logged_in():
+        warn_not_logged_in()
         return
-
-    data = response.json()
-    account = data["attributes"]
-
+    
+    api_key = get_api_key()
+    client = pytero.PteroClient(PANEL_API_URL, api_key)
+    account = await client.get_account()
     info: str = ""
 
-    info += click.style(f"Email: {account['email']}\n", bold=True)
-    info += click.style(f"Username: {account['username']}\n", bold=True)
+    info += click.style(f"Email: {account.email}\n", bold=True)
+    info += click.style(f"Username: {account.username}\n", bold=True)
 
     click.echo(info)
 
 
 @core.group("servers")
-def servers():
+async def servers():
     """Commands related to servers."""
     ...
 
@@ -74,105 +68,93 @@ def servers():
 @click.option("--mine", is_flag=True, help="Only list your servers.")
 @click.option("--hide-suspended", is_flag=True, help="Hide suspended servers.")
 @click.option("--count", default=10, help="The amount of servers to list.", type=int)
-def list_servers(mine: bool, hide_suspended, count: int):
+async def list_servers(mine: bool, hide_suspended, count: int):
     """List your servers."""
 
-    response = request("GET", "/")
-
-    if not response:
+    if not is_logged_in():
+        warn_not_logged_in()
         return
-
-    data = response.json()
-    servers = data["data"]
+    
+    api_key = get_api_key()
+    client = pytero.PteroClient(PANEL_API_URL, api_key)
+    servers = await client.get_servers()
 
     message = ""
 
-    for index, _server in enumerate(servers):
-        server = _server["attributes"]
+    for index, server in enumerate(servers):
 
-        if mine and not server["server_owner"]:
+        if mine and not server.server_owner:
             continue
 
-        if hide_suspended and server["is_suspended"]:
+        if hide_suspended and server.is_suspended:
             continue
 
         if index + 1 >= count:
             break
 
-        message += click.style(f"Name: {server['name']}", bold=True)
+        message += click.style(f"Name: {server.name}", bold=True)
         message += "\n"
 
     click.echo(message)
 
 
 @servers.command("view")
-def view_server():
+async def view_server():
     """View information about a specific server."""
+    if not is_logged_in():
+        warn_not_logged_in()
+        return
+    
+    api_key = get_api_key()
+    client = pytero.PteroClient(PANEL_API_URL, api_key)
 
-    results = prompt_server()
+    server = await prompt_server()
 
-    if not results:
+    if not server:
         return
 
-    server_names, answer = results
+    stats = await client.get_server_resources(server.identifier)
 
-    id = server_names[answer["server"]]  # type: ignore
-
-    server_response = request("GET", f"/servers/{id}")
-
-    if not server_response:
-        return
-
-    data = server_response.json()
-
-    server = data["attributes"]
-
-    stats_response = request("GET", f"/servers/{id}/resources")
-
-    if not stats_response:
-        return
-
-    _stats = stats_response.json()
-    current_state = _stats["attributes"]["current_state"]
-    stats = _stats["attributes"]["resources"]
+    current_state = stats.current_state
+    stats = stats.resources
 
     message = ""
 
-    message += click.style(f"Name:                     {server['name']}", bold=True)
+    message += click.style(f"Name:                     {server.name}", bold=True)
     message += "\n"
     message += click.style(
         f"Current status:           {current_state.title()}", bold=True
     )
     message += "\n"
     message += click.style(
-        f"Owner:                    {server['server_owner']}", bold=True
+        f"Owner:                    {server.server_owner}", bold=True
     )
     message += "\n"
     message += click.style(
         "CPU Usage:                "
-        f"{stats['cpu_absolute']}/{server['limits']['cpu'] or '-'}%",
+        f"{stats.cpu_absolute}/{server.limits.cpu or '-'}%",
         bold=True,
     )
     message += "\n"
     message += click.style(
         "RAM Usage:                "
-        f"{round(stats['memory_bytes'] / 1024 / 1024)}/{server['limits']['memory'] or '-'}MB",  # noqa: E501
+        f"{round(stats.memory_bytes / 1024 / 1024)}/{server.limits.memory or '-'}MB",  # noqa: E501
         bold=True,
     )
     message += "\n"
     message += click.style(
         "Disk Usage:               "
-        f"{round(stats['disk_bytes'] / 1024 / 1024)}/{server['limits']['disk'] or '-'}MB",  # noqa: E501
+        f"{round(stats.disk_bytes / 1024 / 1024)}/{server.limits.disk or '-'}MB",  # noqa: E501
         bold=True,
     )
     message += "\n"
     message += click.style(
-        f"Network Usage (Inbound):  {round(stats['network_rx_bytes'] / 1024 / 1024)}MB",
+        f"Network Usage (Inbound):  {round(stats.network_rx_bytes / 1024 / 1024)}MB",
         bold=True,
     )
     message += "\n"
     message += click.style(
-        f"Network Usage (Outbound): {round(stats['network_tx_bytes'] / 1024 / 1024)}MB",
+        f"Network Usage (Outbound): {round(stats.network_tx_bytes / 1024 / 1024)}MB",
         bold=True,
     )
     message += "\n"
@@ -181,112 +163,95 @@ def view_server():
 
 
 @servers.command("start")
-def start_server():
+async def start_server():
     """Start a server."""
-
-    results = prompt_server()
-
-    if not results:
+    if not is_logged_in():
+        warn_not_logged_in()
         return
 
-    server_names, answer = results
+    api_key = get_api_key()
+    client = pytero.PteroClient(PANEL_API_URL, api_key)
 
-    id = server_names[answer["server"]]  # type: ignore
+    server = await prompt_server()
 
-    stats_response = request("GET", f"/servers/{id}/resources")
-
-    if not stats_response:
+    if not server:
         return
 
-    _stats = stats_response.json()
-    current_state = _stats["attributes"]["current_state"]
+    stats = await client.get_server_resources(server.identifier)
+    current_state = stats.current_state
 
     if current_state in ("running", "starting"):
         click.echo(click.style("This server is already running.", fg="red", bold=True))
         return
 
-    response = request(
-        "POST",
-        f"/servers/{id}/power",
-        json={"signal": "start"}
-    )
-
-    if not response:
-        return
+    await client.send_server_power(server.identifier, "start")
 
     click.echo(click.style("Successfully started server.", fg="green", bold=True))
 
 
 @servers.command("stop")
-def stop_server():
+async def stop_server():
     """Stop a server."""
+    if not is_logged_in():
+        warn_not_logged_in()
+        return
+    
+    api_key = get_api_key()
+    client = pytero.PteroClient(PANEL_API_URL, api_key)
 
-    results = prompt_server()
+    server = await prompt_server()
 
-    if not results:
+    if not server:
         return
 
-    server_names, answer = results
+    stats = await client.get_server_resources(server.identifier)
 
-    id = server_names[answer["server"]]  # type: ignore
-
-    stats_response = request("GET", f"/servers/{id}/resources")
-
-    if not stats_response:
-        return
-
-    _stats = stats_response.json()
-    current_state = _stats["attributes"]["current_state"]
+    current_state = stats.current_state
 
     if current_state in ("stopped", "stopping"):
         click.echo(click.style("This server is already stopped.", fg="red", bold=True))
         return
 
-    response = request("POST", f"/servers/{id}/power", json={"signal": "stop"})
-
-    if not response:
-        return
+    await client.send_server_power(server.identifier, "stop")
 
     click.echo(click.style("Successfully stopped server.", fg="green", bold=True))
 
 
 @servers.command("restart")
-def restart_server():
+async def restart_server():
     """Restart a server."""
+    if not is_logged_in():
+        warn_not_logged_in()
+        return
+    
+    api_key = get_api_key()
+    client = pytero.PteroClient(PANEL_API_URL, api_key)
 
-    results = prompt_server()
+    server = await prompt_server()
 
-    if not results:
+    if not server:
         return
 
-    server_names, answer = results
-
-    id = server_names[answer["server"]]  # type: ignore
-
-    response = request("POST", f"/servers/{id}/power", json={"signal": "restart"})
-
-    if not response:
-        return
+    await client.send_server_power(server.identifier, "restart")
 
     click.echo(click.style("Successfully restarted server.", fg="green", bold=True))
 
 
 @servers.command("kill")
-def kill_server():
-    """Kill a server."""
+async def kill_server():
+    """Kill the power on a server."""
+    if not is_logged_in():
+        warn_not_logged_in()
+        return
+    
+    api_key = get_api_key()
+    client = pytero.PteroClient(PANEL_API_URL, api_key)
 
-    results = prompt_server()
+    server = await prompt_server()
 
-    if not results:
+    if not server:
         return
 
-    server_names, answer = results
-
-    id = server_names[answer["server"]]  # type: ignore
-
-    response = request("POST", f"/servers/{id}/power", json={"signal": "kill"})
-
-    if not response:
-        return
+    await client.send_server_power(server.identifier, "kill")
 
     click.echo(click.style("Successfully killed server.", fg="green", bold=True))
